@@ -2,10 +2,6 @@ provider "aws" {
   region = "us-east-1"
 }
 
-variable "vpc_cidr_block" {}
-variable "private_subnets_cidr_blocks" {}
-variable "public_subnets_cidr_blocks" {}
-
 # dynamically fetch availability zones in the region
 data "aws_availability_zones" "azs" {}
 
@@ -19,22 +15,37 @@ module "my-app-vpc" {
     public_subnets  = var.public_subnets_cidr_blocks
     azs = data.aws_availability_zones.azs.names
 
-
+    # Multi-AZ NAT Gateways for high availability
     enable_nat_gateway = true
-    single_nat_gateway = true
+    single_nat_gateway = false
+    one_nat_gateway_per_az = true
     enable_dns_hostnames = true
 
+    # Enhanced VPC Flow Logs configuration
+    enable_flow_log                      = true
+    create_flow_log_cloudwatch_log_group = true
+    create_flow_log_cloudwatch_iam_role  = true
+    flow_log_destination_type            = "cloud-watch-logs"
+    flow_log_traffic_type               = "REJECT"  # Start with rejected traffic for cost control
+    flow_log_cloudwatch_log_group_retention_in_days = 7
+
+    # Tags for resources
     tags = {
-        "kubernertes.io/cluster/myapp-eks-cluster" = "shared" 
+        "kubernetes.io/cluster/myapp-eks-cluster" = "shared"
+        environment = var.environment
+        project = "myapp"
+        owner = "Macdonald"
+        CostCenter = "Engineering"
+        ManagedBy = "Terraform"
     }
 
     public_subnet_tags = {
-        "kubernertes.io/cluster/myapp-eks-cluster" = "shared" 
+        "kubernetes.io/cluster/myapp-eks-cluster" = "shared" 
         "kubernetes.io/role/elb" = "1"
     }
 
     private_subnet_tags = {
-        "kubernertes.io/cluster/myapp-eks-cluster" = "shared" 
+        "kubernetes.io/cluster/myapp-eks-cluster" = "shared" 
         "kubernetes.io/role/internal-elb" = "1"
     }
 }
